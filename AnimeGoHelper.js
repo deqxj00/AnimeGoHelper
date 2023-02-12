@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         AnimeGoHelper[Mikan快速订阅]
 // @namespace    https://github.com/deqxj00/AnimeGoHelper
-// @version      0.50
+// @version      0.51
 // @description  AnimeGo的WebAPI调用插件,能快速添加下载项目,配置筛选规则。！！没有适配mikan的高级订阅模式，请关闭后使用。！！
-// @author       DeQxJ00
+// @author       DeQxJ00,Wetor
 // @match        https://mikanani.me/*
 // @icon         https://mikanani.me/favicon.ico
 // @grant        unsafeWindow
