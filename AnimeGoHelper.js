@@ -407,7 +407,7 @@ background-color:#00b8ee;
         input.click();
     }
     unsafeWindow.exportjson = function () {
-        var json = filterToJson();
+        var json = JSON.stringify(myFiliters);
         let blob = new Blob([json], {type: 'text;charset=utf-8;'});
         let encodedUrl = URL.createObjectURL(blob);
         let url = document.createElement("a");
