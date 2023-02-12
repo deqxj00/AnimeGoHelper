@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AnimeGoHelper[Mikan快速订阅]
 // @namespace    https://github.com/deqxj00/AnimeGoHelper
-// @version      0.46
+// @version      0.47
 // @description  AnimeGo的WebAPI调用插件,能快速添加下载项目,配置筛选规则。！！没有适配mikan的高级订阅模式，请关闭后使用。！！
 // @author       DeQxJ00
 // @match        https://mikanani.me/*
@@ -23,12 +23,11 @@
 // ==/UserScript==
 
 
-
-(function() {
+(function () {
     'use strict';
 
     const samplepath = 'http://youraddress.local/api';
-    const taglist = ["h264","mp4","mkv","h265","x264","720p","1080x720","hevc","简体","繁体","简中","繁中","特别篇","典藏版","简繁日","简日","繁日"];
+    const taglist = ["h264", "mp4", "mkv", "h265", "x264", "720p", "1080x720", "hevc", "简体", "繁体", "简中", "繁中", "特别篇", "典藏版", "简繁日", "简日", "繁日"];
     GM_addStyle(GM_getResourceText("tagifycss"));
     //snackbar src https://www.w3schools.com/howto/howto_js_snackbar.asp
     GM_addStyle(`
@@ -218,7 +217,6 @@ background-color:#00b8ee;
 `);
 
 
-
     // 过滤匹配类型详细设定
     // ==============================================
     // 1，2，3 都需要先请求一次/Home/Episode/xxxxxxx的页面
@@ -232,50 +230,30 @@ background-color:#00b8ee;
     // =============================================
     //黑白名单同时开启时 先处理白名单 再处理黑名单
     class ListFiliterInner {
-        constructor(){
+        constructor() {
             this.is_enable_whitelist = false;
             this.whitelist = new Array();
-            this.is_enable_blacklist= false;
+            this.is_enable_blacklist = false;
             this.blacklist = new Array();
         }
     }
 
     class ListFiliters {
-        constructor(){
-            this.Filiter0 = new Map();
-            this.Filiter1 = new Map();
-            this.Filiter2 = new Map();
-            this.Filiter3 = new Map();
-            this.Filiter4 = new Map();
+        constructor() {
+            this.Filiter0 = new Object();
+            this.Filiter1 = new Object();
+            this.Filiter2 = new Object();
+            this.Filiter3 = new Object();
+            this.Filiter4 = new Object();
         }
     };
     var myFiliters = new ListFiliters();
 
-    //处理map与json之间的转换
-    //https://stackoverflow.com/questions/29085197/how-do-you-json-stringify-an-es6-map
-    function replacer(key, value) {
-        if(value instanceof Map) {
-            return {
-                dataType: 'Map',
-                value: Array.from(value.entries()), // or with spread: value: [...value]
-            };
-        } else {
-            return value;
-        }
-    }
-    function reviver(key, value) {
-        if(typeof value === 'object' && value !== null) {
-            if (value.dataType === 'Map') {
-                return new Map(value.value);
-            }
-        }
-        return value;
-    }
-    function InitListFiliters(){
+    function InitListFiliters() {
         let tmp = GM_getValue('myFiliters');
-        if(tmp != null){
-            myFiliters = JSON.parse(tmp, reviver);
-        }else{
+        if (tmp != null) {
+            myFiliters = JSON.parse(tmp);
+        } else {
             //sample
             //let defaultlist = new ListFiliterInner();
             //defaultlist.is_enable_blacklist = true;
@@ -304,61 +282,61 @@ background-color:#00b8ee;
     var x = document.getElementById("snackbar");
     //设置按钮
     var loginbox = document.getElementsByClassName("w-other-c text-right");
-    if(loginbox.length > 0){
+    if (loginbox.length > 0) {
         //已登入
-        loginbox[0].insertAdjacentHTML('afterbegin','<a style="color: #47c1c5;" onclick="showSetting()">AnimeGo设置</a><br>');
-    }else{
+        loginbox[0].insertAdjacentHTML('afterbegin', '<a style="color: #47c1c5;" onclick="showSetting()">AnimeGo设置</a><br>');
+    } else {
         //未登入
         loginbox = document.getElementsByClassName("pull-right");
-        if(loginbox.length > 0){
-            loginbox[0].insertAdjacentHTML('afterbegin','<a style="color: #47c1c5;" onclick="showSetting()">AnimeGo设置</a><br>');
+        if (loginbox.length > 0) {
+            loginbox[0].insertAdjacentHTML('afterbegin', '<a style="color: #47c1c5;" onclick="showSetting()">AnimeGo设置</a><br>');
         }
     }
     //api地址输入框设定
 
-    var content0 ='<div id="inputurldiv" style="display:none"><div id="inputurldiv_inner"><div class="popover-header popover-title"><span style="color:#3bc0c3">AnimeGo设置</span><button type="button" class="close" onclick="closeSetting()" data-dismiss="popover-x" aria-hidden="true"><i class="fa fa-times" aria-hidden="true"></i></button></div>'
-    +'<div class="popover-body popover-content">'
-    +'<span>请修改api地址:</span><input id="inputurlbox" type="text" class="form-control input-sm" placeholder="'+samplepath+'" ><br>'
-    +'<span>AccessKey:</span><input id="inputurlbox2" type="password" class="form-control input-sm"><br>'
-    +'<span>PluginName:</span><input id="inputurlbox3" type="text" value="filter/AnimeGoHelperParser/AnimeGoHelperParser.js" class="form-control input-sm"><br>'
-    +'<span>备份/导入/清除过滤配置<br>指的是浏览器端插件的</span><br><br>'
-    +'<span>上传/获取过滤配置<br>通过AnimeGO的WebAPI同步后端和浏览器插件的过滤配置</span><br><br>'
-    +'<input type="file" accept=".json" id="upload" style="visibility:hidden">'
-    +'</div>'
-    +'<div class="popover-footer"><div style="margin-right: 12px;height:75px">'
-    +'<button type="button" class="btn btn-sm btn-submit btn-setting"  onclick="window.confirmurl()">确定</button>'
-    +'<button type="button" class="btn btn-sm btn-submit btn-setting"  onclick="window.exportjson()">备份过滤配置</button>'
-    +'<button type="button" class="btn btn-sm btn-submit btn-setting"  onclick="window.importjson()">导入过滤配置</button>'
-    +'<button type="button" class="btn btn-sm btn-submit btn-setting"  onclick="window.clearjson()">清除过滤配置</button>'
-    +'<button type="button" class="btn btn-sm btn-submit btn-setting2" onclick="window.uploadjson()">上传过滤配置</button>'
-    +'<button type="button" class="btn btn-sm btn-submit btn-setting2" onclick="window.downloadjson()">获取过滤配置</button>'
-    +'<button type="button" class="btn btn-sm btn-submit btn-setting2" onclick="window.testapi()">测试WEB API</button>'
-    + '</div></div></div></div>'
+    var content0 = '<div id="inputurldiv" style="display:none"><div id="inputurldiv_inner"><div class="popover-header popover-title"><span style="color:#3bc0c3">AnimeGo设置</span><button type="button" class="close" onclick="closeSetting()" data-dismiss="popover-x" aria-hidden="true"><i class="fa fa-times" aria-hidden="true"></i></button></div>'
+        + '<div class="popover-body popover-content">'
+        + '<span>请修改api地址:</span><input id="inputurlbox" type="text" class="form-control input-sm" placeholder="' + samplepath + '" ><br>'
+        + '<span>AccessKey:</span><input id="inputurlbox2" type="password" class="form-control input-sm"><br>'
+        + '<span>PluginName:</span><input id="inputurlbox3" type="text" value="filter/AnimeGoHelperParser/AnimeGoHelperParser.js" class="form-control input-sm"><br>'
+        + '<span>备份/导入/清除过滤配置<br>指的是浏览器端插件的</span><br><br>'
+        + '<span>上传/获取过滤配置<br>通过AnimeGO的WebAPI同步后端和浏览器插件的过滤配置</span><br><br>'
+        + '<input type="file" accept=".json" id="upload" style="visibility:hidden">'
+        + '</div>'
+        + '<div class="popover-footer"><div style="margin-right: 12px;height:75px">'
+        + '<button type="button" class="btn btn-sm btn-submit btn-setting"  onclick="window.confirmurl()">确定</button>'
+        + '<button type="button" class="btn btn-sm btn-submit btn-setting"  onclick="window.exportjson()">备份过滤配置</button>'
+        + '<button type="button" class="btn btn-sm btn-submit btn-setting"  onclick="window.importjson()">导入过滤配置</button>'
+        + '<button type="button" class="btn btn-sm btn-submit btn-setting"  onclick="window.clearjson()">清除过滤配置</button>'
+        + '<button type="button" class="btn btn-sm btn-submit btn-setting2" onclick="window.uploadjson()">上传过滤配置</button>'
+        + '<button type="button" class="btn btn-sm btn-submit btn-setting2" onclick="window.downloadjson()">获取过滤配置</button>'
+        + '<button type="button" class="btn btn-sm btn-submit btn-setting2" onclick="window.testapi()">测试WEB API</button>'
+        + '</div></div></div></div>'
     document.body.insertAdjacentHTML('afterend', content0);
 
     const input = document.querySelector("#upload");
     const fr = new FileReader();
-    fr.onload = async function() {
+    fr.onload = async function () {
         const blob = new Blob([fr.result])
         var tmpValue;
         try {
-            tmpValue = JSON.parse(await blob.text(), reviver);
+            tmpValue = JSON.parse(await blob.text());
         } catch (error) {
-            toast('JSON转换错误:'+error);
+            toast('JSON转换错误:' + error);
         }
-        if(tmpValue !== null && tmpValue !== undefined && tmpValue !== 'undefined' && tmpValue !== ''){
+        if (tmpValue !== null && tmpValue !== undefined && tmpValue !== 'undefined' && tmpValue !== '') {
             myFiliters = tmpValue;
-            await GM_setValue('myFiliters',JSON.stringify(myFiliters,replacer));
+            await GM_setValue('myFiliters', JSON.stringify(myFiliters));
             toast('JSON导入成功');
         }
     }
-    input.addEventListener('change',function(){
+    input.addEventListener('change', function () {
         const files = this.files;
-        if(files.length>0){
+        if (files.length > 0) {
             console.log(files[0]);
             fr.readAsArrayBuffer(files[0])
         }
-    },false);
+    }, false);
 
     //过滤器设定
     var content = 'AnimeName:<input type="text" id="AnimeName"  disabled ><br>BangumiId:<input type="text" id="BangumiId"  disabled ><br>SubgroupId:<input type="text" id="SubgroupId"  disabled ><br>GroupName:<input type="text" id="GroupName"  disabled ><br><br>';
@@ -368,7 +346,7 @@ background-color:#00b8ee;
     content += '<input name="input-custom-dropdown-whitelist" type="text" placeholder="输入白名单过滤关键词后按回车" ><br><br>';
     content += '<span style="margin-right:5px;">开启黑名单</span><label class="switch" id="switchBlacklist"><span>&nbsp;</span><input type="checkbox"><span class="slider round"></span></label><br>';
     content += '<input name="input-custom-dropdown-balcklist" type="text" placeholder="输入黑名单过滤关键词后按回车" >';
-    document.body.insertAdjacentHTML('afterend', '<div id="filterdiv" style="display:none"><div id="filterdiv_inner"><div class="popover-header popover-title"><span id="filtertitle" style="color:#3bc0c3">高级过滤设置</span><button type="button" class="close" onclick="closeSettingSubGroup()" data-dismiss="popover-x" aria-hidden="true"><i class="fa fa-times" aria-hidden="true"></i></button></div><div class="popover-body popover-content">'+content+'</div><div class="popover-footer"><div style="margin-right: 12px;height:30px"><button type="button" id="inputurlspan" class="btn btn-sm btn-submit" style="background-color:#61ccd1" onclick="window.confirmfilter()">确定</button></div></div></div></div>');
+    document.body.insertAdjacentHTML('afterend', '<div id="filterdiv" style="display:none"><div id="filterdiv_inner"><div class="popover-header popover-title"><span id="filtertitle" style="color:#3bc0c3">高级过滤设置</span><button type="button" class="close" onclick="closeSettingSubGroup()" data-dismiss="popover-x" aria-hidden="true"><i class="fa fa-times" aria-hidden="true"></i></button></div><div class="popover-body popover-content">' + content + '</div><div class="popover-footer"><div style="margin-right: 12px;height:30px"><button type="button" id="inputurlspan" class="btn btn-sm btn-submit" style="background-color:#61ccd1" onclick="window.confirmfilter()">确定</button></div></div></div></div>');
 
     const switchWhitelist = document.getElementById('switchWhitelist');
     const switchBlacklist = document.getElementById('switchBlacklist');
@@ -391,7 +369,7 @@ background-color:#00b8ee;
     //读取存储的地址
     var tmppath = GM_getValue('apipath');
     var tmp2path = GM_getValue('token');
-    if(tmp2path !== null && tmp2path !== undefined && tmp2path !== 'undefined' && tmp2path !== ''){
+    if (tmp2path !== null && tmp2path !== undefined && tmp2path !== 'undefined' && tmp2path !== '') {
         inputurlbox2.value = tmp2path;
         token = tmp2path;
         //toast("已读取access key:"+tmp2path);
@@ -403,34 +381,34 @@ background-color:#00b8ee;
     }
 
 
-    if(tmppath !== null && tmppath !== undefined && tmppath !== 'undefined' && tmppath !== samplepath){
+    if (tmppath !== null && tmppath !== undefined && tmppath !== 'undefined' && tmppath !== samplepath) {
         apipath = tmppath;
         inputurlbox.value = tmppath;
         inputurldiv.style.display = 'none';
-    }else{
+    } else {
         inputurldiv.style.display = '';
     }
 
     //debug
-    if(GM_getValue('debug') == true){
+    if (GM_getValue('debug') == true) {
         //inputurldiv.style.display = 'block';
     }
-    unsafeWindow.clearjson = async function(){
-        myFiliters.Filiter0 = new Map();
-        myFiliters.Filiter1 = new Map();
-        myFiliters.Filiter2 = new Map();
-        myFiliters.Filiter3 = new Map();
-        myFiliters.Filiter4 = new Map();
+    unsafeWindow.clearjson = async function () {
+        myFiliters.Filiter0 = new Object();
+        myFiliters.Filiter1 = new Object();
+        myFiliters.Filiter2 = new Object();
+        myFiliters.Filiter3 = new Object();
+        myFiliters.Filiter4 = new Object();
         await GM_deleteValue('myFiliters');
         InitListFiliters();
         toast('过滤设置已经重置');
     }
-    unsafeWindow.importjson = function(){
+    unsafeWindow.importjson = function () {
         input.click();
     }
-    unsafeWindow.exportjson = function(){
-        var json = JSON.stringify(myFiliters,replacer);
-        let blob = new Blob([json],{type: 'text;charset=utf-8;'});
+    unsafeWindow.exportjson = function () {
+        var json = filterToJson();
+        let blob = new Blob([json], {type: 'text;charset=utf-8;'});
         let encodedUrl = URL.createObjectURL(blob);
         let url = document.createElement("a");
         url.setAttribute("href", encodedUrl);
@@ -438,149 +416,151 @@ background-color:#00b8ee;
         document.body.appendChild(url);
         url.click();
     }
-    function urlcheck(link){
+
+    function urlcheck(link) {
         var isOk = true;
-        if(!link.includes("http://") && !link.includes("https://")){
-            toast(link+',需要包含http://或者https://');
+        if (!link.includes("http://") && !link.includes("https://")) {
+            toast(link + ',需要包含http://或者https://');
             isOk = false;
         }
-        if(!link.includes("/api")){
-            toast(link+',需要包含/api');
+        if (!link.includes("/api")) {
+            toast(link + ',需要包含/api');
             isOk = false;
         }
         return isOk;
     }
-    unsafeWindow.uploadjson = function(){
+
+    unsafeWindow.uploadjson = function () {
         const link = inputurlbox.value;
         const name = inputurlbox3.value;
-        if(!urlcheck(link)){
+        if (!urlcheck(link)) {
             return
         }
-        var json = JSON.stringify(myFiliters,replacer);
-        var _data = JSON.stringify({"name":name,"data": Base64.encode(json)} );
+        var json = JSON.stringify(myFiliters);
+        var _data = JSON.stringify({"name": name, "data": Base64.encode(json)});
         GM_xmlhttpRequest({
             method: 'POST',
-            url: apipath+"/plugin/config",
+            url: apipath + "/plugin/config",
             data: _data,
-            headers:{
+            headers: {
                 'Access-Key': tokensha256,
                 'Content-Type': 'application/json'
             },
-            onerror: response =>{
+            onerror: response => {
                 console.log('onerror');
                 toast('[api地址不正确] error')
             },
-            ontimeout: response =>{
+            ontimeout: response => {
                 toast('[http]请求超时')
             },
-            onloadend: response =>{
+            onloadend: response => {
             },
             onload: response => {
                 if (response.status == 200) {
                     var resp = JSON.parse(response.responseText);
-                    if(resp === null || resp === undefined || resp ==='undefined'){
-                        toast(name+ ',[resp is null or undefined]');
-                    }else{
+                    if (resp === null || resp === undefined || resp === 'undefined') {
+                        toast(name + ',[resp is null or undefined]');
+                    } else {
                         var code = resp.code;
-                        if(code === 200 || code === '200'){
+                        if (code === 200 || code === '200') {
                             toast(resp.msg);
-                        }else{
-                            toast(name+',[json code error] code:'+resp.code+',msg:'+resp.msg);
+                        } else {
+                            toast(name + ',[json code error] code:' + resp.code + ',msg:' + resp.msg);
                         }
                     }
-                }else{
-                    toast(name+', [http request error] '+response.status)
+                } else {
+                    toast(name + ', [http request error] ' + response.status)
                 }
             }
         });
     }
-    unsafeWindow.downloadjson =  function(){
+    unsafeWindow.downloadjson = function () {
         const link = inputurlbox.value;
         const name = inputurlbox3.value;
-        if(!urlcheck(link)){
+        if (!urlcheck(link)) {
             return
         }
-        if(name==''){
+        if (name == '') {
             toast('PluginName不能为空')
             return
         }
         GM_xmlhttpRequest({
             method: 'GET',
-            url: apipath+"/plugin/config?name="+name,
-            headers:{
+            url: apipath + "/plugin/config?name=" + name,
+            headers: {
                 'Access-Key': tokensha256,
             },
-            onerror: response =>{
+            onerror: response => {
                 console.log('onerror');
                 toast('[api地址不正确] error')
             },
-            ontimeout: response =>{
+            ontimeout: response => {
                 toast('[http]请求超时')
             },
-            onloadend: response =>{
+            onloadend: response => {
             },
             onload: response => {
                 if (response.status == 200) {
                     var resp = JSON.parse(response.responseText);
-                    if(resp === null || resp === undefined || resp ==='undefined'){
-                        toast(name+ ',[resp is null or undefined]');
-                    }else{
+                    if (resp === null || resp === undefined || resp === 'undefined') {
+                        toast(name + ',[resp is null or undefined]');
+                    } else {
                         var code = resp.code;
-                        if(code === 200 || code === '200'){
+                        if (code === 200 || code === '200') {
                             var tmpValue;
                             try {
                                 const jsonstr = Base64.decode(resp.data.data);
-                                tmpValue = JSON.parse(jsonstr, reviver);
+                                tmpValue = JSON.parse(jsonstr);
                                 myFiliters = tmpValue;
                                 toast(resp.msg);
-                                GM_setValue('myFiliters',JSON.stringify(myFiliters,replacer));
+                                GM_setValue('myFiliters', JSON.stringify(myFiliters));
                             } catch (error) {
-                                toast('JSON转换错误:'+error);
+                                toast('JSON转换错误:' + error);
                             }
-                        }else{
-                            toast(name+',[json code error] code:'+resp.code+',msg:'+resp.msg);
+                        } else {
+                            toast(name + ',[json code error] code:' + resp.code + ',msg:' + resp.msg);
                         }
                     }
-                }else{
-                    toast(name+', [http request error] '+response.status)
+                } else {
+                    toast(name + ', [http request error] ' + response.status)
                 }
             }
         });
     }
-    unsafeWindow.testapi = function(){
+    unsafeWindow.testapi = function () {
         var link = inputurlbox.value;
-        if(!urlcheck(link)){
+        if (!urlcheck(link)) {
             return
         }
-        link = link.replace("/api","/ping");
+        link = link.replace("/api", "/ping");
         GM_xmlhttpRequest({
             method: 'GET',
             url: link,
-            headers:{'Accept': 'application/rss+xml'},
-            onerror: response =>{
-                toast(link+',测试错误,error')
+            headers: {'Accept': 'application/rss+xml'},
+            onerror: response => {
+                toast(link + ',测试错误,error')
             },
-            ontimeout: response =>{
-                toast(link+',测试错误,timeout');
+            ontimeout: response => {
+                toast(link + ',测试错误,timeout');
             },
-            onloadend: response =>{
-                console.log(link+',loadend');
+            onloadend: response => {
+                console.log(link + ',loadend');
             },
             onload: response => {
                 //console.log(response.status);
                 if (response.status == 200) {
                     var resp = response.responseText;
-                    toast('测试成功: '+resp)
-                }else{
-                    toast('[http response error] '+response.status)
+                    toast('测试成功: ' + resp)
+                } else {
+                    toast('[http response error] ' + response.status)
                 }
             }
         });
     }
-    unsafeWindow.showSetting = function(){
+    unsafeWindow.showSetting = function () {
         inputurldiv.style.display = 'block';
     }
-    unsafeWindow.closeSetting= function(){
+    unsafeWindow.closeSetting = function () {
         inputurldiv.style.display = 'none';
     }
 
@@ -608,44 +588,42 @@ background-color:#00b8ee;
             closeOnSelect: true
         }
     });
-    function myselectonchange(){
+
+    function myselectonchange() {
         var myFiliter = null;
         switchWhitelist.children[1].checked = false;
         switchBlacklist.children[1].checked = false;
         tagifyWhitelist.removeAllTags();
         tagifyBlacklist.removeAllTags();
-        if(myselect.selectedIndex==0){
-            selectkey.value='0';
-            myFiliter = myFiliters.Filiter0.get(selectkey.value);
+        if (myselect.selectedIndex == 0) {
+            selectkey.value = '0';
+            myFiliter = myFiliters.Filiter0[selectkey.value];
+        } else if (myselect.selectedIndex == 1) {
+            selectkey.value = 'key_' + BangumiId.value + '_' + SubgroupId.value;
+            myFiliter = myFiliters.Filiter1[selectkey.value];
+        } else if (myselect.selectedIndex == 2) {
+            selectkey.value = BangumiId.value;
+            myFiliter = myFiliters.Filiter2[selectkey.value];
+        } else if (myselect.selectedIndex == 3) {
+            selectkey.value = SubgroupId.value;
+            myFiliter = myFiliters.Filiter3[selectkey.value];
+        } else if (myselect.selectedIndex == 4) {
+            selectkey.value = GroupName.value;
+            myFiliter = myFiliters.Filiter4[selectkey.value];
         }
-        else if(myselect.selectedIndex==1){
-            selectkey.value=BangumiId.value+'+'+ SubgroupId.value;
-            myFiliter = myFiliters.Filiter1.get(selectkey.value);
-        }
-        else if(myselect.selectedIndex==2){
-            selectkey.value=BangumiId.value;
-            myFiliter = myFiliters.Filiter2.get(selectkey.value);
-        }
-        else if(myselect.selectedIndex==3){
-            selectkey.value=SubgroupId.value;
-            myFiliter = myFiliters.Filiter3.get(selectkey.value);
-        }
-        else if(myselect.selectedIndex==4){
-            selectkey.value=GroupName.value;
-            myFiliter = myFiliters.Filiter4.get(selectkey.value);
-        }
-        if(myFiliter !== null && myFiliter !== undefined && myFiliter !== 'undefined'){
+        if (myFiliter !== null && myFiliter !== undefined && myFiliter !== 'undefined') {
             switchWhitelist.children[1].checked = myFiliter.is_enable_whitelist;
             switchBlacklist.children[1].checked = myFiliter.is_enable_blacklist;
             tagifyWhitelist.addTags(myFiliter.whitelist);
             tagifyBlacklist.addTags(myFiliter.blacklist);
         }
     }
+
     myselect.addEventListener('change', (event) => {
         myselectonchange();
     });
-    unsafeWindow.showSettingSubGroup = function(n,animename,groupname,subgroupid,bangumiid) {
-        toast("showSettingSubGroup:animename"+animename+",groupname:"+groupname+",subgroupid:"+subgroupid+",bangumiid:"+bangumiid);
+    unsafeWindow.showSettingSubGroup = function (n, animename, groupname, subgroupid, bangumiid) {
+        toast("showSettingSubGroup:animename" + animename + ",groupname:" + groupname + ",subgroupid:" + subgroupid + ",bangumiid:" + bangumiid);
         textAnimeName.value = animename;
         textGroupName.value = groupname;
         textBangumiId.value = bangumiid;
@@ -653,84 +631,86 @@ background-color:#00b8ee;
         myselectonchange();
         filterdiv.style.display = 'block';
     }
-    unsafeWindow.closeSettingSubGroup= function(){
+    unsafeWindow.closeSettingSubGroup = function () {
         filterdiv.style.display = 'none';
     }
-    unsafeWindow.confirmfilter = function(){
-        if(selectkey.value !== null && selectkey.value !== undefined && selectkey.value !== 'undefined' && selectkey.value !== ''){
+    unsafeWindow.confirmfilter = function () {
+        if (selectkey.value !== null && selectkey.value !== undefined && selectkey.value !== 'undefined' && selectkey.value !== '') {
 
             let defaultlist = new ListFiliterInner();
             defaultlist.is_enable_whitelist = switchWhitelist.children[1].checked;
             defaultlist.is_enable_blacklist = switchBlacklist.children[1].checked;
-            defaultlist.whitelist = tagifyWhitelist.getCleanValue();
-            defaultlist.blacklist = tagifyBlacklist.getCleanValue();
-            if(myselect.selectedIndex==0){
-                myFiliters.Filiter0.set(selectkey.value,defaultlist);
+            defaultlist.whitelist = []
+            tagifyWhitelist.getCleanValue().forEach((obj) => {
+                defaultlist.whitelist.push(obj.value)
+            });
+            defaultlist.blacklist = []
+            tagifyBlacklist.getCleanValue().forEach((obj) => {
+                defaultlist.blacklist.push(obj.value)
+            });
+            if (myselect.selectedIndex == 0) {
+                myFiliters.Filiter0[selectkey.value] = defaultlist;
+            } else if (myselect.selectedIndex == 1) {
+                myFiliters.Filiter1[selectkey.value] = defaultlist;
+            } else if (myselect.selectedIndex == 2) {
+                myFiliters.Filiter2[selectkey.value] = defaultlist;
+            } else if (myselect.selectedIndex == 3) {
+                myFiliters.Filiter3[selectkey.value] = defaultlist;
+            } else if (myselect.selectedIndex == 4) {
+                myFiliters.Filiter4[selectkey.value] = defaultlist;
             }
-            else if(myselect.selectedIndex==1){
-                myFiliters.Filiter1.set(selectkey.value,defaultlist);
-            }
-            else if(myselect.selectedIndex==2){
-                myFiliters.Filiter2.set(selectkey.value,defaultlist);
-            }
-            else if(myselect.selectedIndex==3){
-                myFiliters.Filiter3.set(selectkey.value,defaultlist);
-            }
-            else if(myselect.selectedIndex==4){
-                myFiliters.Filiter4.set(selectkey.value,defaultlist);
-            }
-            GM_setValue('myFiliters',JSON.stringify(myFiliters,replacer));
+            GM_setValue('myFiliters', JSON.stringify(myFiliters));
             filterdiv.style.display = 'none';
             toast(`确认保存设定:${myselect.selectedIndex},${selectkey.value}`);
-        }else{
+        } else {
             toast(`数据为空 不能保存`);
         }
     }
-    unsafeWindow.confirmurl = function(){
+    unsafeWindow.confirmurl = function () {
         var tmp = inputurlbox.value;
         var tmp2 = inputurlbox2.value;
-        if(tmp2 !== null && tmp2 !== undefined && tmp2 !== 'undefined'){
-            GM_setValue('token',tmp2);
-            toast("已保存access key:"+tmp2);
+        if (tmp2 !== null && tmp2 !== undefined && tmp2 !== 'undefined') {
+            GM_setValue('token', tmp2);
+            toast("已保存access key:" + tmp2);
             token = tmp2;
             digestMessage(tmp2).then(
                 (digestHex) => {
-                    if(tmp2 !== ''){
+                    if (tmp2 !== '') {
                         tokensha256 = digestHex;
                     }
                 }
             );
         }
-        GM_setValue('apipath',tmp);
+        GM_setValue('apipath', tmp);
         apipath = tmp;
         inputurldiv.style.display = 'none';
-        toast("保存url:"+tmp);
+        toast("保存url:" + tmp);
     }
-    unsafeWindow.postApiAllEpisode = function(n,animename,groupname,subgroupid,bangumiid) {
-        unsafeWindow.postApiBase(n,animename,groupname,subgroupid,bangumiid,false,'',false,null);
+    unsafeWindow.postApiAllEpisode = function (n, animename, groupname, subgroupid, bangumiid) {
+        unsafeWindow.postApiBase(n, animename, groupname, subgroupid, bangumiid, false, '', false, null);
     }
-    unsafeWindow.postApiSingleEpisode = function(n,animename,groupname,link) {
-        if(n.classList.contains("running")){
+    unsafeWindow.postApiSingleEpisode = function (n, animename, groupname, link) {
+        if (n.classList.contains("running")) {
             return;
         }
-        var name = groupname +","+animename;
+        var name = groupname + "," + animename;
         var u = Ladda.create(n);
-        if(animename != "updateHomeEpisode"){
+        if (animename != "updateHomeEpisode") {
             u.start();
             n.classList.add('running');
         }
         GM_xmlhttpRequest({
             method: 'GET',
             url: link,
-            headers:{'Accept': 'application/rss+xml'},
-            onerror: response =>{
-                toast(link+',onerror')
+            headers: {'Accept': 'application/rss+xml'},
+            onerror: response => {
+                toast(link + ',onerror')
             },
-            ontimeout: response =>{
-                toast(link+',ontimeout');
+            ontimeout: response => {
+                toast(link + ',ontimeout');
             },
-            onloadend: response =>{
-                console.log(link+',onloadend');
+            onloadend: response => {
+                console.log(link + ',onloadend');
                 //u.stop();
                 n.classList.remove('running');
             },
@@ -738,71 +718,75 @@ background-color:#00b8ee;
                 //console.log(response.status);
                 if (response.status == 200) {
                     var resp = response.responseText;
-                    if(resp === null || resp === undefined || resp ==='undefined'){
-                        toast(name+ '[response is null or undefined]');
-                    }else{
-                        var parser=new DOMParser();
-                        var htmlDoc=parser.parseFromString(resp, "text/html");
+                    if (resp === null || resp === undefined || resp === 'undefined') {
+                        toast(name + '[response is null or undefined]');
+                    } else {
+                        var parser = new DOMParser();
+                        var htmlDoc = parser.parseFromString(resp, "text/html");
                         var rssels = htmlDoc.getElementsByClassName('mikan-rss');
                         console.log(htmlDoc);
-                        if(rssels.length>0 && rssels[0].hasAttribute('href')){
-                            var bangumiId = getParameterByName('bangumiId',rssels[0].href);
-                            var subgroupid = getParameterByName('subgroupid',rssels[0].href);
+                        if (rssels.length > 0 && rssels[0].hasAttribute('href')) {
+                            var bangumiId = getParameterByName('bangumiId', rssels[0].href);
+                            var subgroupid = getParameterByName('subgroupid', rssels[0].href);
                             n.classList.remove('running');
                             //u.stop();
-                            unsafeWindow.postApiBase(n,animename,groupname,subgroupid,bangumiId,true,link,true,u);
-                        }else{
-                            toast(name+', 网页信息缺失 请稍后再试 '+response.status);
+                            unsafeWindow.postApiBase(n, animename, groupname, subgroupid, bangumiId, true, link, true, u);
+                        } else {
+                            toast(name + ', 网页信息缺失 请稍后再试 ' + response.status);
                             n.classList.remove('running');
                             u.stop();
                         }
 
                     }
-                }else{
-                    toast(name+', [http request error] '+response.status)
+                } else {
+                    toast(name + ', [http request error] ' + response.status)
                 }
             }
         });
         //unsafeWindow.postApiBase(n,name,0,0,2,link);
     }
-    unsafeWindow.postApiBase = function(n,animename,groupname,subgroupid,bangumiid,is_select_ep,ep_link,is_already_loading,u) {
-        if(n.classList.contains("running")){
+    unsafeWindow.postApiBase = function (n, animename, groupname, subgroupid, bangumiid, is_select_ep, ep_link, is_already_loading, u) {
+        if (n.classList.contains("running")) {
             return;
         }
-        console.log('animename:'+animename+',groupname:'+groupname+',subgroupid:'+subgroupid+',bangumiid:'+bangumiid+',is_select_ep:'+is_select_ep+',link:'+ep_link);
-        var name = groupname +","+animename;
+        console.log('animename:' + animename + ',groupname:' + groupname + ',subgroupid:' + subgroupid + ',bangumiid:' + bangumiid + ',is_select_ep:' + is_select_ep + ',link:' + ep_link);
+        var name = groupname + "," + animename;
         var rssurl = `https://mikanani.me/RSS/Bangumi?bangumiid=${bangumiid}&subgroupid=${subgroupid}`;
-        if (!apipath.includes("http://") && !apipath.includes("https://")){
+        if (!apipath.includes("http://") && !apipath.includes("https://")) {
             toast('[api地址 需要包含http://或者https:// ]');
         }
         if (!AdvancedSubscriptionEnabled) {
-            console.log('running-postApiBase1-'+n.classList)
-            if(n.classList.contains('running')){
-            }
-            else {
-                var _data = JSON.stringify({"source":"mikan","rss": { "url" : rssurl },"is_select_ep":is_select_ep,"ep_links": [ep_link ]} );
+            console.log('running-postApiBase1-' + n.classList)
+            if (n.classList.contains('running')) {
+            } else {
+                var _data = JSON.stringify({
+                    "source": "mikan",
+                    "rss": {"url": rssurl},
+                    "is_select_ep": is_select_ep,
+                    "ep_links": [ep_link]
+                });
                 console.log(_data);
                 n.classList.add('running');
-                if(!is_already_loading){
+                if (!is_already_loading) {
                     u = Ladda.create(n);
                     u.start();
                 }
                 GM_xmlhttpRequest({
                     method: 'POST',
-                    url: apipath+"/rss",
+                    url: apipath + "/rss",
                     data: _data,
-                    headers:{
+                    headers: {
                         'Access-Key': tokensha256,
                         'Content-Type': 'application/json'
                     },
-                    onerror: response =>{
+                    onerror: response => {
                         console.log('onerror');
                         toast('[api地址不正确] error')
                     },
-                    ontimeout: response =>{
+                    ontimeout: response => {
                         console.log('ontimeout');
                     },
-                    onloadend: response =>{
+                    onloadend: response => {
                         console.log('onloadend');
                         u.stop();
                         n.classList.remove('running');
@@ -811,32 +795,35 @@ background-color:#00b8ee;
                         //console.log(response.status);
                         if (response.status == 200) {
                             var resp = JSON.parse(response.responseText);
-                            if(resp === null || resp === undefined || resp ==='undefined'){
-                                toast(groupname+ '[resp is null or undefined]');
-                            }else{
+                            if (resp === null || resp === undefined || resp === 'undefined') {
+                                toast(groupname + '[resp is null or undefined]');
+                            } else {
                                 var code = resp.code;
-                                if(code === 200 || code === '200'){
+                                if (code === 200 || code === '200') {
                                     toast(resp.msg);
-                                }else{
-                                    toast(name+'[json code error] code:'+resp.code+',msg:'+resp.msg);
+                                } else {
+                                    toast(name + '[json code error] code:' + resp.code + ',msg:' + resp.msg);
                                 }
                             }
-                        }else{
-                            toast(name+', [http request error] '+response.status)
+                        } else {
+                            toast(name + ', [http request error] ' + response.status)
                         }
                     }
                 });
             }
-        }else{
+        } else {
             toast('高级订阅模式未进行适配');
         }
     };
 
-    function toast(msg){
+    function toast(msg) {
         x.innerText = msg;
         x.className = "show";
-        setTimeout(function(){ x.className = x.className.replace("show", ""); }, 2000);
+        setTimeout(function () {
+            x.className = x.className.replace("show", "");
+        }, 2000);
     }
+
     function getParameterByName(name, url = window.location.href) {
         name = name.replace(/[\[\]]/g, '\\$&');
         var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
@@ -845,6 +832,7 @@ background-color:#00b8ee;
         if (!results[2]) return '';
         return decodeURIComponent(results[2].replace(/\+/g, ' '));
     }
+
     function getId(element) {
         var groupname = '';
         var animename = '';
@@ -852,21 +840,21 @@ background-color:#00b8ee;
         var div2 = element.getElementsByClassName('sk-col tag-res-new');
         var div3 = element.getElementsByClassName('sk-col tag-res-name');
         var div4 = element.parentElement.parentElement.getElementsByClassName('sk-col res-ul-title-text w-other-nh');
-        if(div2.length == 1){
+        if (div2.length == 1) {
             div2[0].style.margin = '0 0 0 -41px';
         }
-        if(div3.length == 1){
+        if (div3.length == 1) {
             groupname = div3[0].innerText;
         }
         var subtitlegroupid = div.getAttribute('data-subtitlegroupid');
         var bangumiid = div.getAttribute('data-bangumiid');
-        if(div4.length == 1){
+        if (div4.length == 1) {
             animename = div4[0].innerText;
             var els = document.getElementsByTagName('a');
-            for (var i=0;i<els.length;i++){
+            for (var i = 0; i < els.length; i++) {
                 var el = els[i];
-                if(el.href !== null && el.href !== undefined && el.href !=='undefined' && el.href.includes('Home/Bangumi/'+bangumiid)){
-                    animename = el.innerText + " , "+animename ;
+                if (el.href !== null && el.href !== undefined && el.href !== 'undefined' && el.href.includes('Home/Bangumi/' + bangumiid)) {
+                    animename = el.innerText + " , " + animename;
                     //console.log(el.href+","+animename);
                     break;
                 }
@@ -874,35 +862,36 @@ background-color:#00b8ee;
         }
 
         //btn-primary ladda-button sk-col tag-sub js-subscribe_bangumi
-        div.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.showSettingSubGroup(this,\''+animename+'\',\''+groupname+'\','+subtitlegroupid+','+bangumiid+')" style="background-color: #47c1c5;float:right;margin-right:5px;margin-top:-17px;" data-style="zoom-in">设</div>');
-        div.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiAllEpisode(this,\''+animename+'\',\''+groupname+'\','+subtitlegroupid+','+bangumiid+')" style="background-color: #5467d8;float:right;margin-right:5px;" data-style="zoom-in">全</div>');
+        div.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.showSettingSubGroup(this,\'' + animename + '\',\'' + groupname + '\',' + subtitlegroupid + ',' + bangumiid + ')" style="background-color: #47c1c5;float:right;margin-right:5px;margin-top:-17px;" data-style="zoom-in">设</div>');
+        div.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiAllEpisode(this,\'' + animename + '\',\'' + groupname + '\',' + subtitlegroupid + ',' + bangumiid + ')" style="background-color: #5467d8;float:right;margin-right:5px;" data-style="zoom-in">全</div>');
     }
+
     var bangumidiv = document.querySelector('#sk-body');
     var searchdiv = document.querySelector('#sk-container');
     var anlistdiv = document.querySelector('#an-list');
 
-    const config = { attributes: false, childList: true, subtree: true };
-    const callback = function(mutationsList, observer) {
-        for(const mutation of mutationsList) {
+    const config = {attributes: false, childList: true, subtree: true};
+    const callback = function (mutationsList, observer) {
+        for (const mutation of mutationsList) {
             if (mutation.type === 'childList') {
                 //console.log(mutation);
-                if(mutation.target.id==='an-episode-updates'){
+                if (mutation.target.id === 'an-episode-updates') {
                     updateMyBangumiAnlist(mutation.target);
                 }
-                if(mutation.target.classList.contains('central-container')){
+                if (mutation.target.classList.contains('central-container')) {
                     updateMagnetlinkwrap(mutation.target);
                 }
-                if(mutation.target.classList.length==2){
+                if (mutation.target.classList.length == 2) {
                     updateMagnetlinkwrap(mutation.target);
-                    if(mutation.target.classList.contains('row') && mutation.target.classList.contains('an-res-row-frame')){
+                    if (mutation.target.classList.contains('row') && mutation.target.classList.contains('an-res-row-frame')) {
                         //js-expand_bangumi-subgroup js-subscribed active
-                        var ul= mutation.target.querySelector('ul.list-unstyled.res-ul');
-                        if(ul !== null && ul !== undefined && ul !== 'undefined'){
+                        var ul = mutation.target.querySelector('ul.list-unstyled.res-ul');
+                        if (ul !== null && ul !== undefined && ul !== 'undefined') {
                             var lis = ul.getElementsByTagName('li');
                             for (var k = 0, length = lis.length; k < length; k++) {
                                 getId(lis[k]);
                             }
-                            if(lis.length>0){
+                            if (lis.length > 0) {
                                 break;
                             }
                         }
@@ -913,49 +902,51 @@ background-color:#00b8ee;
     };
 
 
-    function updateMagnetlinkwrap(mainel){
+    function updateMagnetlinkwrap(mainel) {
         var els = mainel.getElementsByClassName('magnet-link-wrap');
         Array.prototype.forEach.call(els, function (el) {
-            if(el.href !== null && el.href !== undefined && el.href !=='undefined' && el.href.includes('Home/Episode') && !el.classList.contains('anigoadded')){
+            if (el.href !== null && el.href !== undefined && el.href !== 'undefined' && el.href.includes('Home/Episode') && !el.classList.contains('anigoadded')) {
                 var name = el.innerHTML;
                 el.classList.add('anigoadded');
-                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiSingleEpisode(this,\'updateMagnetlinkwrap\',\''+name+'\',\''+el.href+'\')" style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">单</div>');
+                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiSingleEpisode(this,\'updateMagnetlinkwrap\',\'' + name + '\',\'' + el.href + '\')" style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">单</div>');
             }
         });
     }
-    function updateMyBangumiAnlist(mainel){
+
+    function updateMyBangumiAnlist(mainel) {
         var els = mainel.getElementsByClassName('w-other-c rss-episode-name');
         Array.prototype.forEach.call(els, function (el) {
-            if(el.href !== null && el.href !== undefined && el.href !=='undefined' && el.href.includes('Home/Episode') && !el.classList.contains('anigoadded')){
+            if (el.href !== null && el.href !== undefined && el.href !== 'undefined' && el.href.includes('Home/Episode') && !el.classList.contains('anigoadded')) {
                 var name = el.previousElementSibling.previousElementSibling.innerText;
                 el.classList.add('anigoadded');
-                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiSingleEpisode(this,\'updateMyBangumiAnlist\',\''+name+'\',\''+el.href+'\')" style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">单</div>');
+                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiSingleEpisode(this,\'updateMyBangumiAnlist\',\'' + name + '\',\'' + el.href + '\')" style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">单</div>');
             }
         });
     }
+
     const observer = new MutationObserver(callback);
     var path = window.location.pathname;
-    if(path.includes('/Home/Bangumi/') || path.includes('/Home/Search') || path.includes('/Home/Classic') ){
+    if (path.includes('/Home/Bangumi/') || path.includes('/Home/Search') || path.includes('/Home/Classic')) {
         var animename = '';
         var title = document.getElementsByClassName('bangumi-title');
-        if(title.length == 1){
+        if (title.length == 1) {
             animename = title[0].innerText;
         }
         var els = document.getElementsByClassName('mikan-rss');
         Array.prototype.forEach.call(els, function (el) {
-            if(el.href !== null && el.href !== undefined && el.href !=='undefined' && el.href.includes('bangumiId') && el.href.includes('subgroupid')){
-                var bangumiId = getParameterByName('bangumiId',el.href);
-                var subgroupid = getParameterByName('subgroupid',el.href);
+            if (el.href !== null && el.href !== undefined && el.href !== 'undefined' && el.href.includes('bangumiId') && el.href.includes('subgroupid')) {
+                var bangumiId = getParameterByName('bangumiId', el.href);
+                var subgroupid = getParameterByName('subgroupid', el.href);
                 var groupname = '';
 
-                if(el.previousElementSibling !== null){
-                    groupname=el.previousElementSibling.innerHTML;
-                    if(groupname=='&nbsp;'){
-                        groupname=el.previousElementSibling.previousElementSibling.children[0].children[0].innerHTML;
+                if (el.previousElementSibling !== null) {
+                    groupname = el.previousElementSibling.innerHTML;
+                    if (groupname == '&nbsp;') {
+                        groupname = el.previousElementSibling.previousElementSibling.children[0].children[0].innerHTML;
                     }
                 }
-                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.showSettingSubGroup(this,\''+animename+'\',\''+groupname+'\','+subgroupid+','+bangumiId+')" style="background-color: #47c1c5;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">设</div>');
-                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiAllEpisode(this,\''+animename+'\',\''+groupname+'\','+subgroupid+','+bangumiId+')" style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">全</div>');
+                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.showSettingSubGroup(this,\'' + animename + '\',\'' + groupname + '\',' + subgroupid + ',' + bangumiId + ')" style="background-color: #47c1c5;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">设</div>');
+                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiAllEpisode(this,\'' + animename + '\',\'' + groupname + '\',' + subgroupid + ',' + bangumiId + ')" style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">全</div>');
             }
         });
         //适配 https://mikanani.me/Home/Episode/xxxxxxxxxxxxxxxxxxxxxxx
@@ -963,32 +954,32 @@ background-color:#00b8ee;
         observer.observe(searchdiv, config);
     }
 
-    if(path.includes('/Home/MyBangumi') || path==='/Home' || path ==='/'){
+    if (path.includes('/Home/MyBangumi') || path === '/Home' || path === '/') {
         updateMyBangumiAnlist(document);
         observer.observe(bangumidiv, config);
         observer.observe(anlistdiv, config);
     }
 
-    if(path.includes('/Home/Episode/')){
+    if (path.includes('/Home/Episode/')) {
         var title1 = document.getElementsByClassName('episode-title')[0].innerText;
         var btn = document.getElementsByClassName('btn episode-btn')[0];
         var name = title1;
         var link = window.location.href;
         //mikan-rss
         var rssels = document.getElementsByClassName('mikan-rss');
-        if(rssels.length>0 && rssels[0].hasAttribute('href')){
-            var bangumiId = getParameterByName('bangumiId',rssels[0].href);
-            var subgroupid = getParameterByName('subgroupid',rssels[0].href);
+        if (rssels.length > 0 && rssels[0].hasAttribute('href')) {
+            var bangumiId = getParameterByName('bangumiId', rssels[0].href);
+            var subgroupid = getParameterByName('subgroupid', rssels[0].href);
             var magnetspan = document.getElementsByClassName('magnet-link-wrap')[0];
             var groupname = '';
-            if(magnetspan.children.length == 0){
-                groupname = '['+ magnetspan.innerText+'] ';
-            }else{
-                groupname = '['+ magnetspan.children[0].innerText+'] ';
+            if (magnetspan.children.length == 0) {
+                groupname = '[' + magnetspan.innerText + '] ';
+            } else {
+                groupname = '[' + magnetspan.children[0].innerText + '] ';
             }
             groupname += document.getElementsByClassName('bangumi-title')[0].children[0].innerText;
-            btn.insertAdjacentHTML('afterend', '<div class="btn episode-btn" onclick="window.postApiAllEpisode(this,\''+groupname+'\','+subgroupid+','+bangumiId+')" style="" data-style="zoom-in">添加全集到AnimeGo</div>');
-            btn.insertAdjacentHTML('afterend', '<div class="btn episode-btn" onclick="window.postApiSingleEpisode(this,\'updateHomeEpisode\',\''+name+'\',\''+link+'\')" style="" data-style="zoom-in">添加单集到AnimeGo</div>');
+            btn.insertAdjacentHTML('afterend', '<div class="btn episode-btn" onclick="window.postApiAllEpisode(this,\'' + groupname + '\',' + subgroupid + ',' + bangumiId + ')" style="" data-style="zoom-in">添加全集到AnimeGo</div>');
+            btn.insertAdjacentHTML('afterend', '<div class="btn episode-btn" onclick="window.postApiSingleEpisode(this,\'updateHomeEpisode\',\'' + name + '\',\'' + link + '\')" style="" data-style="zoom-in">添加单集到AnimeGo</div>');
         }
     }
 
