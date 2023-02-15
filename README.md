@@ -2,7 +2,7 @@
 
 AnimeGo本体:   [AnimeGo](https://github.com/wetor/AnimeGo)
 
-Tampermonkey插件:   [AnimeGoHelper\[Mikan快速订阅\]](https://greasyfork.org/zh-CN/scripts/449596) 
+Tampermonkey插件:   [AnimeGoHelper\[Mikan快速订阅\Mikan_Tool]](https://greasyfork.org/zh-CN/scripts/449596) 
 
 AnimeGo过滤插件 和 Tampermonkey插件需要配套使用
 
