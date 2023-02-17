@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AnimeGoHelper[Mikan快速订阅]
 // @namespace    https://github.com/deqxj00/AnimeGoHelper
-// @version      0.51
+// @version      0.52
 // @description  AnimeGo的WebAPI调用插件,能快速添加下载项目,配置筛选规则。！！没有适配mikan的高级订阅模式，请关闭后使用。！！
 // @author       DeQxJ00,Wetor
 // @match        https://mikanani.me/*
@@ -298,7 +298,7 @@ background-color:#00b8ee;
         + '<div class="popover-body popover-content">'
         + '<span>请修改api地址:</span><input id="inputurlbox" type="text" class="form-control input-sm" placeholder="' + samplepath + '" ><br>'
         + '<span>AccessKey:</span><input id="inputurlbox2" type="password" class="form-control input-sm"><br>'
-        + '<span>PluginName:</span><input id="inputurlbox3" type="text" value="filter/AnimeGoHelperParser/AnimeGoHelperParser.js" class="form-control input-sm"><br>'
+        + '<span>PluginName:</span><input id="inputurlbox3" type="text" value="filter/mikan_tool.py" class="form-control input-sm"><br>'
         + '<span>备份/导入/清除过滤配置<br>指的是浏览器端插件的</span><br><br>'
         + '<span>上传/获取过滤配置<br>通过AnimeGO的WebAPI同步后端和浏览器插件的过滤配置</span><br><br>'
         + '<input type="file" accept=".json" id="upload" style="visibility:hidden">'
