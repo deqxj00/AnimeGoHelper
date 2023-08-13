@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         AnimeGoHelper[Mikan快速订阅]
 // @namespace    https://github.com/deqxj00/AnimeGoHelper
-// @version      0.52
+// @version      0.60
 // @description  AnimeGo的WebAPI调用插件,能快速添加下载项目,配置筛选规则。！！没有适配mikan的高级订阅模式，请关闭后使用。！！
 // @author       DeQxJ00,Wetor
 // @match        https://mikanani.me/*
-// @icon         https://mikanani.me/favicon.ico
+// @match        https://mikanime.tv/*
+// @icon         https://mikanime.tv/favicon.ico
 // @grant        unsafeWindow
 // @grant        GM_getResourceText
 // @grant        GM_xmlhttpRequest
@@ -686,16 +687,16 @@ background-color:#00b8ee;
         inputurldiv.style.display = 'none';
         toast("保存url:" + tmp);
     }
-    unsafeWindow.postApiAllEpisode = function (n, animename, groupname, subgroupid, bangumiid) {
-        unsafeWindow.postApiBase(n, animename, groupname, subgroupid, bangumiid, false, '', false, null);
+    unsafeWindow.postApiAllEpisode = function (n, type_name, anime_name, subgroupid, bangumiid) {
+        unsafeWindow.postApiBase(n, type_name, anime_name, subgroupid, bangumiid, false, '', false, null);
     }
-    unsafeWindow.postApiSingleEpisode = function (n, animename, groupname, link) {
+    unsafeWindow.postApiSingleEpisode = function (n, type_name, anime_name, link, torrent=null) {
         if (n.classList.contains("running")) {
             return;
         }
-        var name = groupname + "," + animename;
+        var name = anime_name + "," + type_name;
         var u = Ladda.create(n);
-        if (animename != "updateHomeEpisode") {
+        if (type_name != "updateHomeEpisode") {
             u.start();
             n.classList.add('running');
         }
@@ -724,13 +725,16 @@ background-color:#00b8ee;
                         var parser = new DOMParser();
                         var htmlDoc = parser.parseFromString(resp, "text/html");
                         var rssels = htmlDoc.getElementsByClassName('mikan-rss');
-                        console.log(htmlDoc);
                         if (rssels.length > 0 && rssels[0].hasAttribute('href')) {
                             var bangumiId = getParameterByName('bangumiId', rssels[0].href);
                             var subgroupid = getParameterByName('subgroupid', rssels[0].href);
                             n.classList.remove('running');
                             //u.stop();
-                            unsafeWindow.postApiBase(n, animename, groupname, subgroupid, bangumiId, true, link, true, u);
+                            if(torrent!=null && torrent!='null'){
+                                unsafeWindow.postNewApiBase(n, type_name, anime_name, torrent, link, true, u);
+                            }else{
+                                unsafeWindow.postApiBase(n, type_name, anime_name, subgroupid, bangumiId, true, link, true, u);
+                            }
                         } else {
                             toast(name + ', 网页信息缺失 请稍后再试 ' + response.status);
                             n.classList.remove('running');
@@ -743,20 +747,91 @@ background-color:#00b8ee;
                 }
             }
         });
-        //unsafeWindow.postApiBase(n,name,0,0,2,link);
     }
-    unsafeWindow.postApiBase = function (n, animename, groupname, subgroupid, bangumiid, is_select_ep, ep_link, is_already_loading, u) {
+
+    unsafeWindow.postNewApiBase = function (n, type_name, anime_name, torrent_url, mikan_url, is_already_loading, u) {
         if (n.classList.contains("running")) {
             return;
         }
-        console.log('animename:' + animename + ',groupname:' + groupname + ',subgroupid:' + subgroupid + ',bangumiid:' + bangumiid + ',is_select_ep:' + is_select_ep + ',link:' + ep_link);
-        var name = groupname + "," + animename;
+        console.log(`typr_name: ${type_name}, animename: ${anime_name}, torrent: ${torrent_url}, mikan: ${mikan_url}`)
+        if (!apipath.includes("http://") && !apipath.includes("https://")) {
+            toast('[api地址 需要包含http://或者https:// ]');
+        }
+        if (!AdvancedSubscriptionEnabled) {
+            if (n.classList.contains('running')) {
+            } else {
+                var _data = JSON.stringify({
+                    "source": "mikan",
+                    "data": [{
+                        "torrent": torrent_url,
+                        "info": {
+                            "name": anime_name,
+                            "url": mikan_url
+                        }
+                    }]
+                });
+                console.log(_data);
+                n.classList.add('running');
+                if (!is_already_loading) {
+                    u = Ladda.create(n);
+                    u.start();
+                }
+                GM_xmlhttpRequest({
+                    method: 'POST',
+                    url: apipath + "/download/manager",
+                    data: _data,
+                    headers: {
+                        'Access-Key': tokensha256,
+                        'Content-Type': 'application/json'
+                    },
+                    onerror: response => {
+                        console.log('onerror');
+                        toast('[api地址不正确] error')
+                    },
+                    ontimeout: response => {
+                        console.log('ontimeout');
+                    },
+                    onloadend: response => {
+                        console.log('onloadend');
+                        u.stop();
+                        n.classList.remove('running');
+                    },
+                    onload: response => {
+                        //console.log(response.status);
+                        if (response.status == 200) {
+                            var resp = JSON.parse(response.responseText);
+                            if (resp === null || resp === undefined || resp === 'undefined') {
+                                toast(anime_name + '[resp is null or undefined]');
+                            } else {
+                                var code = resp.code;
+                                if (code === 200 || code === '200') {
+                                    toast(resp.msg);
+                                } else {
+                                    toast(name + '[json code error] code:' + resp.code + ',msg:' + resp.msg);
+                                }
+                            }
+                        } else {
+                            toast(name + ', [http request error] ' + response.status)
+                        }
+                    }
+                });
+            }
+        } else {
+            toast('高级订阅模式未进行适配');
+        }
+    };
+
+    unsafeWindow.postApiBase = function (n, type_name, anime_name, subgroupid, bangumiid, is_select_ep, ep_link, is_already_loading, u) {
+        if (n.classList.contains("running")) {
+            return;
+        }
+        console.log('type_name:' + type_name + ',animename:' + anime_name + ',subgroupid:' + subgroupid + ',bangumiid:' + bangumiid + ',is_select_ep:' + is_select_ep + ',link:' + ep_link);
+        var name = anime_name + "," + type_name;
         var rssurl = `https://mikanani.me/RSS/Bangumi?bangumiid=${bangumiid}&subgroupid=${subgroupid}`;
         if (!apipath.includes("http://") && !apipath.includes("https://")) {
             toast('[api地址 需要包含http://或者https:// ]');
         }
         if (!AdvancedSubscriptionEnabled) {
-            console.log('running-postApiBase1-' + n.classList)
             if (n.classList.contains('running')) {
             } else {
                 var _data = JSON.stringify({
@@ -796,7 +871,7 @@ background-color:#00b8ee;
                         if (response.status == 200) {
                             var resp = JSON.parse(response.responseText);
                             if (resp === null || resp === undefined || resp === 'undefined') {
-                                toast(groupname + '[resp is null or undefined]');
+                                toast(anime_name + '[resp is null or undefined]');
                             } else {
                                 var code = resp.code;
                                 if (code === 200 || code === '200') {
@@ -861,6 +936,7 @@ background-color:#00b8ee;
             }
         }
 
+        animename = animename.replaceAll("'","#39;");
         //btn-primary ladda-button sk-col tag-sub js-subscribe_bangumi
         div.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.showSettingSubGroup(this,\'' + animename + '\',\'' + groupname + '\',' + subtitlegroupid + ',' + bangumiid + ')" style="background-color: #47c1c5;float:right;margin-right:5px;margin-top:-17px;" data-style="zoom-in">设</div>');
         div.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiAllEpisode(this,\'' + animename + '\',\'' + groupname + '\',' + subtitlegroupid + ',' + bangumiid + ')" style="background-color: #5467d8;float:right;margin-right:5px;" data-style="zoom-in">全</div>');
@@ -901,6 +977,27 @@ background-color:#00b8ee;
         }
     };
 
+    function buildSingleButton(type, anime_name, link, torrent){
+        return `<div class="ladda-button sk-col tag-sub"
+        onclick="window.postApiSingleEpisode(this, \`${type}\`, \`${anime_name}\`, \`${link}\`, \`${torrent}\`)"
+        style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">单</div>`
+    }
+
+    function getAnimeTorrentLink(li){
+        var torrent = null
+        var as = li.getElementsByTagName('a')
+        Array.prototype.forEach.call(as, function (el) {
+            if (el.href !== null && el.href !== undefined && el.href !== 'undefined' && el.href.includes('/Download') && el.href.includes('.torrent')) {
+                torrent = el.href
+                return
+            }
+        });
+        if(torrent != null){
+            return torrent
+        }
+        console.log('未找到torrent下载链接')
+        return null
+    }
 
     function updateMagnetlinkwrap(mainel) {
         var els = mainel.getElementsByClassName('magnet-link-wrap');
@@ -908,7 +1005,10 @@ background-color:#00b8ee;
             if (el.href !== null && el.href !== undefined && el.href !== 'undefined' && el.href.includes('Home/Episode') && !el.classList.contains('anigoadded')) {
                 var name = el.innerHTML;
                 el.classList.add('anigoadded');
-                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiSingleEpisode(this,\'updateMagnetlinkwrap\',\'' + name + '\',\'' + el.href + '\')" style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">单</div>');
+                name = name.replaceAll("'","#39;");
+                var torrent = getAnimeTorrentLink(el.parentNode.parentNode)
+                var button = buildSingleButton('updateMagnetlinkwrap', name, el.href, torrent)
+                el.insertAdjacentHTML('afterend', button);
             }
         });
     }
@@ -919,7 +1019,10 @@ background-color:#00b8ee;
             if (el.href !== null && el.href !== undefined && el.href !== 'undefined' && el.href.includes('Home/Episode') && !el.classList.contains('anigoadded')) {
                 var name = el.previousElementSibling.previousElementSibling.innerText;
                 el.classList.add('anigoadded');
-                el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiSingleEpisode(this,\'updateMyBangumiAnlist\',\'' + name + '\',\'' + el.href + '\')" style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">单</div>');
+                name = name.replaceAll("'","#39;");
+                var torrent = getAnimeTorrentLink(el.parentNode.parentNode)
+                var button = buildSingleButton('updateMyBangumiAnlist', name, el.href, torrent)
+                el.insertAdjacentHTML('afterend', button);
             }
         });
     }
@@ -945,6 +1048,7 @@ background-color:#00b8ee;
                         groupname = el.previousElementSibling.previousElementSibling.children[0].children[0].innerHTML;
                     }
                 }
+                animename = animename.replace("'","#39;");
                 el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.showSettingSubGroup(this,\'' + animename + '\',\'' + groupname + '\',' + subgroupid + ',' + bangumiId + ')" style="background-color: #47c1c5;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">设</div>');
                 el.insertAdjacentHTML('afterend', '<div class="ladda-button sk-col tag-sub" onclick="window.postApiAllEpisode(this,\'' + animename + '\',\'' + groupname + '\',' + subgroupid + ',' + bangumiId + ')" style="background-color: #5467d8;color:white;padding:0px 2px 0px 2px;margin:0px 2px 0px 2px;" data-style="zoom-in">全</div>');
             }
@@ -977,9 +1081,14 @@ background-color:#00b8ee;
             } else {
                 groupname = '[' + magnetspan.children[0].innerText + '] ';
             }
+            name = name.replaceAll("'","#39;");
+            console.log(magnetspan)
+            var torrent = getAnimeTorrentLink(el.parentNode.parentNode)
+            var button = buildSingleButton('updateHomeEpisode', name, link, torrent)
+            btn.insertAdjacentHTML('afterend', button);
             groupname += document.getElementsByClassName('bangumi-title')[0].children[0].innerText;
             btn.insertAdjacentHTML('afterend', '<div class="btn episode-btn" onclick="window.postApiAllEpisode(this,\'' + groupname + '\',' + subgroupid + ',' + bangumiId + ')" style="" data-style="zoom-in">添加全集到AnimeGo</div>');
-            btn.insertAdjacentHTML('afterend', '<div class="btn episode-btn" onclick="window.postApiSingleEpisode(this,\'updateHomeEpisode\',\'' + name + '\',\'' + link + '\')" style="" data-style="zoom-in">添加单集到AnimeGo</div>');
+            // btn.insertAdjacentHTML('afterend', '<div class="btn episode-btn" onclick="window.postApiSingleEpisode(this,\'updateHomeEpisode\',\'' + name + '\',\'' + link + '\')" style="" data-style="zoom-in">添加单集到AnimeGo</div>');
         }
     }
 
