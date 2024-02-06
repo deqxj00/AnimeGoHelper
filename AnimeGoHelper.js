@@ -28,7 +28,7 @@
     'use strict';
 
     const samplepath = 'http://youraddress.local/api';
-    const taglist = ["h264", "mp4", "mkv", "h265", "x264", "720p", "1080x720", "hevc", "简体", "繁体", "简中", "繁中", "特别篇", "典藏版", "简繁日", "简日", "繁日"];
+    const taglist = ["h264", "mp4", "mkv", "h265", "x264", "720p", "1280x720", "hevc", "简体", "繁体", "简中", "繁中", "特别篇", "典藏版", "简繁日", "简日", "繁日"];
     GM_addStyle(GM_getResourceText("tagifycss"));
     //snackbar src https://www.w3schools.com/howto/howto_js_snackbar.asp
     GM_addStyle(`
